@@ -1,64 +1,50 @@
-from flask import Flask, render_template, request, redirect, url_for
-import warnings
-import pandas as pd
-warnings.filterwarnings("ignore")
+# Author : Pankhuri Mishra
+# Last updated on 16th May'22
 
-# Importing model library
-import model
+from email import header
+from operator import index
+from flask import Flask, request, render_template, jsonify
+from model import SentimentRecommenderModel
 
 
-# Initializing Flask App
 app = Flask(__name__)
 
+sentiment_model = SentimentRecommenderModel()
+#Author Pankhuri Mishra
+#Last Updated 17th May 2022
 
-# Defining method for root path
 @app.route('/')
 def home():
     return render_template('index.html')
 
 
-@app.route('/recommend-products', methods=['POST'])
-def recommendProducts():
-    # Fetching the user entered username 
-    username =  str(request.form.get('username'))
+@app.route('/predict', methods=['POST'])
+def prediction():
+    # get user from the html form
+    user = request.form['userName']
+    # convert text to lowercase
+    user = user.lower()
+    items = sentiment_model.getSentimentRecommendations(user)
 
-    # Getting recommendations for user using the model
-    modelOutput = model.sentimentBasedProductRecommendations(username)
-
-    # Checking type of variable if it's not a list then it will be an error
-    if type(modelOutput) != list : 
-        # Returning the error to be displayed
-        return render_template('index.html', error=modelOutput)
-
-    # If output is a list then:
-    # Converting recommendations list to a dataFrame
-    recommendations = pd.DataFrame(modelOutput, columns=['Product Recommendations'])
-
-    # Creating a HTML table using DataFrame
-    recommendations_table = [recommendations.to_html(classes='recommendations')]
-    # Defining Table title
-    table_title = ['NAN', 'Top 5 Product Recommendations for : {}'.format(username)]
-
-    # Rendering Template while passing the results
-    return  render_template('index.html', productsTable = recommendations_table, titles=table_title)
-
-@app.route('/allusernames', methods=['GET'])
-def allUsernames():
-    # Reading usernames from source i.e. recommendation system
-    usernamesList = list(model.ProductRecommendationSystem.index)
-
-    # Converting List to a dataframe
-    usernamesDF = pd.DataFrame(usernamesList, columns=['Available Usernames'])
-
-    # Creating a HTML table using DataFrame
-    usernameTable = [usernamesDF.to_html(classes='usernames')]
-    # Defining Table title
-    table_title = ['NAN', 'List of all usernames available in SBPRS Database']
-
-    # Rendering the page
-    return render_template('allusernames.html', usernameTable = usernameTable, titles = table_title )
+    if(not(items is None)):
+        print(f"retrieving items....{len(items)}")
+        print(items)
+        # data=[items.to_html(classes="table-striped table-hover", header="true",index=False)
+        #return render_template("index.html", column_names=items.columns.values, row_data=list(items.values.tolist()), zip=zip)
+        return render_template("index.html", output=items)
+    else:
+        return render_template("index.html", message="User Name doesn't exists, No product recommendations at this point of time!")
 
 
-# Starting Flask Application
-if __name__ == '__main__' :
-    app.run()
+@app.route('/predictSentiment', methods=['POST'])
+def predict_sentiment():
+    # get the review text from the html form
+    review_text = request.form["reviewText"]
+    print(review_text)
+    pred_sentiment = sentiment_model.classify_sentiment(review_text)
+    print(pred_sentiment)
+    return render_template("index.html", sentiment=pred_sentiment)
+
+
+if __name__ == '__main__':
+    app.run()	
